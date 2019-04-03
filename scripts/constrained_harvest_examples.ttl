@@ -1,0 +1,194 @@
+@base <http://naturallexicon.org/harvest/>.
+@prefix harvest: <#>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix owl: <http://www.w3.org/2002/07/owl#>.
+@prefix wdt: <http://www.wikidata.org/prop/direct/>.
+@prefix wdp: <http://www.wikidata.org/prop/>.
+@prefix wd: <http://www.wikidata.org/entity/>.
+
+
+# This file contains example specifications for bot runs to be executed
+# by constrained_harvest.py. It is supported by an ontology defined in
+# constrained_harvest.ttl, each of whose constructs should be documented
+# by its associated rdfs:comment assertions.
+
+
+# COMMON IMPLICIT/FIELD SPECIFICATIONS
+
+<#isaHuman> a harvest:FieldSpec;
+    rdfs:comment "A common implicit specification asserts the target ISA human.";
+    harvest:property wdp:P31;
+    harvest:value wd:Q5;
+.
+
+<#isaOrganization> a harvest:FieldSpec;
+  harvest:property wdp:P31;
+  harvest:value wd:Q43229;
+.
+
+<#label> a harvest:FieldSpec;
+  harvest:field "name", "fullname","conventional_long_name", "common_name";
+  harvest:property harvest:Label;
+    .
+    
+<#birthPlaceIsP19> a harvest:FieldSpec;
+    harvest:field "birth_place";
+    harvest:property wdp:P19;
+    .
+
+<#birthDateIsP569> a harvest:FieldSpec;
+    harvest:field "birth_date";
+    harvest:property wdp:P569;
+    .
+
+<#Company> a harvest:Harvest;
+    rdfs:comment """
+        Basic data scraped for a company. Provided as a simple example.
+        """;
+    harvest:template <https://en.wikipedia.org/wiki/Template:Infobox_company>;
+    harvest:implicitSpec <#isaOrganization>;
+    harvest:fieldSpec harvest:label;
+    harvest:fieldSpec 
+    [
+      rdfs:comment "legal form should be a type of business entity";
+      harvest:field "type";
+      harvest:property wdp:P1454; #legal form
+      harvest:range wd:Q1269299; #type of business entity
+    ];
+    
+    harvest:fieldSpec
+    [
+      rdfs:comment "headquarters location should be in a human settlement";
+      harvest:field "hq_location_city";
+      harvest:property wdp:P159; # headquarters location
+      harvest:range wd:Q486972; # human settlement
+    ];
+    
+    .
+
+
+# RUGBY
+<#professionIsRugbyPlayer> a harvest:FieldSpec;
+  harvest:property wdp:P106;
+  harvest:value wd:Q14089670;
+.
+<#RugbyUnionBio> a harvest:Harvest;
+    harvest:template <https://en.wikipedia.org/wiki/Template:Infobox_rugby_biography>;
+    harvest:implicitSpec <#isaHuman>;
+    harvest:implicitSpec <#professionIsRugbyPlayer>;
+    harvest:fieldSpec harvest:label;
+    harvest:fieldSpec harvest:birthPlaceIsP19;
+    harvest:fieldSpec harvest:birthDateIsP569;
+    harvest:fieldSpec [harvest:field "position";
+                       harvest:property wdp:P413;
+                       harvest:range wd:Q14645593];
+    harvest:fieldSpec [harvest:field "ru_nationalteam";
+                       harvest:property wdp:P54;
+                       harvest:range wd:Q14645593;
+                       harvest:qualifier [harvest:field "ru_nationalYears";
+                                          harvest:property harvest:Time];
+
+                      ];
+                    
+
+.
+# CRICKET
+
+<#Cricketer> a harvest:Harvest;
+    harvest:template <https://en.wikipedia.org/wiki/Template:Infobox_cricketer>;
+    harvest:implicitSpec <#isaHuman>;
+    harvest:implicitSpec
+    [
+      rdfs:comment "Implicit profession is cricketer";
+      harvest:property wdp:P106; #profession
+      harvest:value wd:Q12299841; # cricketer
+    
+    ];
+    harvest:fieldSpec harvest:label;
+    # national team ...
+    harvest:fieldSpec [harvest:field "country";
+                       harvest:property wdp:P54;
+                       harvest:flag "international"; # must be set to true
+                       harvest:linkTemplate "[[${value} national cricket team]]";                   
+                       harvest:qualifier [harvest:field "testdebutyear";
+                                          harvest:property harvest:Start];
+                       harvest:qualifier [harvest:field "lasttestyear";
+                                          harvest:property harvest:End];
+                       ];
+
+    harvest:fieldSpec [harvest:field "club1";
+                       harvest:property wdp:P54;
+                       harvest:qualifier [harvest:field "year1";
+                                         harvest:property harvest:TimeRange];
+                      ];
+    harvest:fieldSpec [harvest:field "club2";
+                       harvest:property wdp:P54;
+                       harvest:qualifier [harvest:field "year2";
+                                         harvest:property harvest:TimeRange];
+                      ];
+    harvest:fieldSpec [harvest:field "club3";
+                       harvest:property wdp:P54;
+                       harvest:qualifier [harvest:field "year3";
+                                         harvest:property harvest:TimeRange];
+                      ];
+    harvest:fieldSpec [harvest:field "club4";
+                       harvest:property wdp:P54;
+                       harvest:qualifier [harvest:field "year4";
+                                         harvest:property harvest:TimeRange];
+                      ];
+    harvest:fieldSpec [harvest:field "club5";
+                       harvest:property wdp:P54;
+                       harvest:qualifier [harvest:field "year5";
+                                         harvest:property harvest:TimeRange];
+                      ];
+    harvest:fieldSpec [harvest:field "club6";
+                       harvest:property wdp:P54;
+                       harvest:qualifier [harvest:field "year6";
+                                         harvest:property harvest:TimeRange];
+                      ];
+    harvest:fieldSpec [harvest:field "club7";
+                       harvest:property wdp:P54;
+                       harvest:qualifier [harvest:field "year7";
+                                         harvest:property harvest:TimeRange];
+                      ];
+    harvest:fieldSpec [harvest:field "club8";
+                       harvest:property wdp:P54;
+                       harvest:qualifier [harvest:field "year8";
+                                         harvest:property harvest:TimeRange];
+                      ];
+.
+
+    
+    
+<#former_country> a harvest:Harvest;
+    harvest:template <https://en.wikipedia.org/wiki/Template:Infobox_former_country>;
+    harvest:implicitSpec
+    [
+        rdfs:comment "Implicit isa is former administrative entity";
+        harvest:property wdp:P31;
+        harvest:value wd:Q19953632; 
+        harvest:constraint harvest:CheckForCyclesAndOtherSubsumption;
+        harvest:aggregation harvest:AddIfNotRedundant;
+        harvest:qualifier[harvest:field "life_span";
+                          harvest:property :harvest:TimeRange];
+        harvest:qualifier [harvest:field "year_start";
+                           harvest:property harvest:Start];
+        harvest:qualifier [harvest:field "date_start";
+                           harvest:property harvest:Start];
+        harvest:qualifier [harvest:field "year_end";
+                           harvest:property harvest:End];
+        harvest:qualifier [harvest:field "date_end";
+                           harvest:property harvest:End];
+    ];
+    harvest:fieldSpec harvest:label;
+    harvest:fieldSpec
+    [
+        rdfs:comment "continent should be a continent";
+        harvest:field "continent";
+        harvest:property wdp:P30;
+        harvest:range wd:Q5107;
+    ];
+    .
+    

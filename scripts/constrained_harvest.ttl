@@ -1,0 +1,563 @@
+#-*- mode:ttl-*-
+# This is a sketch of the ontology that might inform constrained_harvest.
+
+@base <http://naturallexicon.org/harvest/>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix owl: <http://www.w3.org/2002/07/owl#>.
+@prefix p: <http://www.wikidata.org/prop/>.
+@prefix pq: <http://www.wikidata.org/prop/qualifier/>.
+@prefix ps: <http://www.wikidata.org/prop/statement/>.
+@prefix wdp: <https://www.wikidata.org/wiki/Property:>.
+@prefix wdt: <http://www.wikidata.org/prop/direct/>.
+@prefix wd: <http://www.wikidata.org/entity/>.
+
+@prefix harvest: <#>.
+
+
+<#WikimediaTemplate> rdfs:subClassOf rdf:Resource;
+    rdfs:comment """
+        Refers to a template used by WMF.
+
+        Labels for this class are used to inform a regex that
+        matches template URLs.
+
+        """;
+    rdfs:label "Template"@en;
+    rdfs:label "Modèle"@fr;
+    rdfs:label "Szablon"@pl;
+    # todo: flesh this out for other languages.
+    .
+
+
+<#Harvest> a rdfs:Class;
+    rdfs:comment """
+        Refers to a targeted run of a constrained harvest against a
+        specific template.
+        """;
+    .
+
+<#harvestProperty> a rdf:Property;
+    rdfs:comment """
+        Refers to a property of some harvest:Harvest.
+        """;
+    rdfs:domain harvest:Harvest;
+    .
+    
+
+<#template> rdfs:subPropertyOf harvest:harvestProperty;
+    rdfs:range harvest:WikimediaTemplate;
+    rdfs:comment """
+
+        <harvest> harvest:template <template>.
+
+    Asserts that <harvest> should target <template>
+    Where <template> is a wikipedia url, e.g.
+    <https://en.wikipedia.org/wiki/Template:Infobox_company>
+    The language tag associated with <template> will be inferred as
+    the target language. Namely 'en' in the case of this example.
+    
+    """;
+
+        .
+
+<#ImplicitSpec> rdfs:subClassOf harvest:PropertySpec;
+    .
+    
+<#implicitSpec> rdfs:subPropertyOf harvest:harvestProperty;
+    rdfs:range <#ImplicitSpec>;
+    rdfs:comment """
+        <harvest> harvest:implicitSpec <property spec>.
+
+    Asserts that when <harvest> is scraping some template, and there
+    is no specification for the property associated for <property
+    spec> within either the template or currently existing entry, we
+    should make an assertion per the details of <property spec>.
+    
+    """;
+    .
+
+
+<#FieldSpec> rdfs:subClassOf <#HarvestClass>;
+    rdfs:comment """
+
+    Refers to a specification relating to whether and how to assert a
+    property based on a template field encountered in a template,
+    i.e. 'name' should be treated as a label.
+    
+
+        """;
+        .
+
+<fieldSpec> a harvest:HarvestProperty;
+    rdfs:domain harvest:Harvest;
+    rdfs:range harvest:FieldSpec;
+    rdfs:comment """
+
+    <harvest> harvest:fieldSpec <fieldSpec>.
+
+    ... asserts that fields parsed from the template associated with
+    <harvest> should be handled according to <fieldSpec>.
+
+        """;
+    .
+    
+<#field> a harvest:HarvestProperty;
+    rdfs:domain harvest:FieldSpec;
+    rdfs:range [a  rdfs:Datatype;
+                owl:onDatatype  xsd:string];
+    rdfs:comment """
+        <fieldSpec> harvest:field "<fieldName>".
+
+    Asserts that <fieldSpec> applies to elements parsed from the target
+    template with name <fieldName>.
+
+    You can specify multilple field names for a given fieldSpec and any
+    of them will match.
+    
+        """;
+        
+    .
+
+
+<#QEntity> a rdfs:Class;
+  rdfs:comment """
+
+    Refers to an entity included in Wikidata and assigned a Q-number.
+    For example wd:Q5 is 'human'.
+    
+        """;
+        .
+
+# PROPERTY SPECIFICATIONS
+
+<#fieldSpec> a harvest:Property;
+    rdfs:domain harvest:FieldSpec;
+    rdfs:range harvest:WDProperty;
+    rdfs:comment """
+
+    <FieldSpec> harvest:property <property>.
+
+    Asserts that values parsed from the specified element of the
+    target template should be associated with <property> in the 
+    corresponding WD entry.
+
+        """;
+    .
+
+<#WDProperty> a rdfs:Class;
+  rdfs:comment """
+
+    Refers to either to a literal which needs special parsing, or a property 
+    in the <https://www.wikidata.org/wiki/Property:>
+    namespace.
+
+    Examples of the former would be harvest:Label, harvest:Time, etc.
+    
+    P-numbers are actually encountered in a number of
+    corresponding namespaces, for which see the wikibase documentation. 
+    P-numbers in the namespace cited above serve as URLs documenting each 
+    P-number.
+
+        """;
+    .
+
+<#Label> a harvest:WDProperty; rdfs:comment """
+
+    <field spec> harvest:property harvest:Label;
+
+    Asserts that values parsed from for <field spec> in the target
+    template should be asserted as a label or an alias in the language
+    associated with the run. If a label already exists, the newly parsed
+    label will replace it only if the existing label is demonstrably 
+    ill-formed, otherwise it will be asserted as an alias.
+
+        """;
+    .
+
+
+<#Time>  a harvest:WDProperty;
+    harvest:constraint harvest:IsTimeSpec;
+    
+    rdfs:comment """
+        
+        <field spec> harvest:property harvest:Time.
+
+        Asserts that values parsed for <field spec> in the target
+        template should be parsed as a specification of a point or
+        region in time.
+    
+        """; .
+
+<#TimeRange> a harvest:WDProperty; rdfs:comment """
+        <field spec> harvest:property harvest:TimeRange.
+
+        Asserts that values parsed for <field spec> in the target
+        template should be parsed as a specification of a range of
+        time typcially from some starting point to some end point,
+        though the logic for making this inference is kind of
+        involved.
+    
+    """;
+        harvest:constraint harvest:IsTimeSpec
+.
+
+<#Start> a harvest:WDProperty;
+    harvest:constraint harvest:IsTimeSpec;
+    rdfs:comment """
+        
+        <field spec> harvest:property harvest:Start.
+
+        Asserts that values parsed for <field spec> in the target
+        template should be parsed as a specification of point in time
+        that serves at the beginning of a range of time.
+    
+        """; .
+
+<#End> a harvest:WDProperty;
+    harvest:constraint harvest:IsTimeSpec;
+    rdfs:comment """
+        
+        <field spec> harvest:property harvest:End.
+
+        Asserts that values parsed for <field spec> in the target
+        template should be parsed as a specification of point in time
+        that serves at the end of a range of time.
+    
+        """; .
+
+
+
+# RANGE CONSTRAINTS
+
+<#range> a harvest:Property;
+    rdfs:domain harvest:FieldSpec;
+    rdfs:range harvest:QEntity;
+    rdfs:comment """
+
+    <fieldSpec> harvest:range <Q>.
+
+    Asserts that values parsed from the target template should be
+    subsumed by <Q> in Wikidata, and skipped otherwise.
+
+        """;
+        
+    .
+
+<#flag> a harvest:Property;
+    rdfs:domain harvest:FieldSpec;
+    rdfs:range rdf:Literal;
+    rdfs:comment """
+        
+        <field spec> harvest:flag <flag field>.
+        
+        Asserts that <field spec> is predicated on the occurance of 
+        <flag field>. 
+        Example:
+
+    In the following specification fragment:
+    
+    
+<#Cricketer> a harvest:Harvest;
+    harvest:template <https://en.wikipedia.org/wiki/Template:Infobox_cricketer>;
+    harvest:fieldSpec
+    [
+     harvest:field "country";
+     harvest:flag "international";
+     harvest:property wdp:P54; # member of sports team
+    ]
+
+    Translating the 'country' field in Infobox_cricketer template to 
+    country membership (P54) is predicated on the presence of an 'international'
+    field in that same template.
+
+        """;
+        .
+
+<#linkTemplate> a harvest:Property;
+    rdfs:domain harvest:FieldSpec;
+    rdfs:range harvest:Literal;
+    rdfs:comment """
+
+        <field spec> harvest:linkTemplate <link template>.
+
+    Asserts that <field spec> should be rendered as a link using
+    <link template>, substituting the value parsed from the field in
+    the ${value} portion of the template.
+
+    Where:
+<link template> := "[[....${value} ...]]".
+
+Example: 
+
+<#Cricketer> a harvest:Harvest;
+    harvest:template <https://en.wikipedia.org/wiki/Template:Infobox_cricketer>;
+    harvest:fieldSpec
+    [
+     harvest:field "country";
+     harvest:property wdp:P54; # member of sports team
+     harvest:linkTemplate "[[${value} national cricket team]]";
+    ]
+
+    Will parse the string or link for say 'Scotland' from the 'country'
+    field, but assert the value for P54 (member of sports team) to be
+    the value appropriate for the link [[Scotland national cricket
+    team]].
+    
+        """;
+    .
+    
+
+# QUALIFIERS
+
+<#qualifier> rdfs:domain harvest:PropertySpec;
+    rdfs:domain harvest:FieldSpec;
+    rdfs:range harvest:FieldSpec;
+    rdfs:comment """
+
+    <fieldSpec> harvest:qualifier <qualifierSpec>.
+
+    Asserts that <qualifier spec> should be asserted as a qualifier
+    within the assertion for <propertySpec>
+
+    An example would be 
+
+    harvest:fieldSpec [harvest:field "ru_nationalteam";
+                       harvest:property wdt:P54;
+                       harvest:range wd:Q14645593;
+                       harvest:qualifier [harvest:field "ru_nationalYears";
+                                          harvest:property harvest:TimeRange;];
+
+                      ]
+
+    Which means the field ru_nationalYears should be mapped to
+    start/end-time properties as parsed by the TimeRange parser, as a qualifier
+    for the P54 (member of team) assertion for whomever is discussed in the 
+    Rugby Union Bio.
+    
+    
+        """;
+    .
+    
+
+<#IsTimeSpec> a harvest:PropertyConstraint.
+
+<#CheckForCyclesAndOtherSubsumption> a harvest:PropertyConstraint;
+  rdfs:comment """
+        Refers to the property constraint exclusive to P31 and P279 guarding
+        against the introduction of invalid subsumption paths like cycles.
+        """
+    .
+
+    
+
+<#NonCyclingAdminRegion> a harvest:PropertyConstraint;
+   rdfs:comment """
+        Refers to a property constraint prohibiting assertions that would
+        introduce located-in cycles.
+        """
+    .
+
+<#CustomConstraint> a harvest:PropertyConstraint;
+    rdfs:comment """
+        <property> harvest:constraint <custom constraint>.
+        <custom constraint> harvest:askQueryTemplate <askq query template>
+
+    Asserts that constraints on <property> should be tested with 
+    the ASK query that results when <ask query template> is substituted with 
+    the following vocabulary:
+    {{{Prefixes}}} is the non-escaped standard set of prefixes pertinent to 
+    Wikibase. Note that there are 3 nested braces.
+    {{Subject}} is a URI for subject of <property>, parsed from the template
+    {{Object}} is the URI for the object of <property>, parsed from the
+    wikimedia template.
+    
+    Said template implements pystache syntax.
+    <property> should be the P-number in the 'wd:' namespace.
+    
+    EG:
+    -----
+    {{{Prefixes}}
+    Ask Where
+    {
+      {{Object}} wdt:P31/wdt:P279* wd:Q6256. 
+      # ... nationality must be country
+    }
+    -----
+    Note: WD has 'native' constraints defined for most predicates, and these 
+    are checked by default. Use custom constraints to supplement or override
+    these native constraints when needed.
+        """;
+    .
+
+<#askQueryTemplate> a rdf:Property;
+    rdfs:comment "See comments of <CustomConstraint>";
+    rdfs:domain harvest:CustomConstraint;
+    rdfs:range rdf:Literal;
+    owl:seeAlso harvest:CustomConstraint;
+    .
+    
+## Example of custom constraints...:
+<#MustBeCountry> a harvest:CustomConstraint;
+   harvest:askQueryTemplate """
+    {{{Prefixes}}
+    Ask Where
+    {
+      {{Object}} wdt:P31/wdt:P279* wd:Q6256. 
+      # ... nationality must be country
+    }
+        """;
+    .
+
+
+## wd:P17 harvest:constraint harvest:MustBeCountry.
+
+
+## AGGREGATION
+<#AggregationPolicy> a rdfs:Class;
+    rdfs:comment """
+        
+        Refers to a policy for aggregating assertions associated with
+        some field or P-number, addressing the question of whether and
+        when to add an assertion where one already exists, and whether
+        the new assertion replaces the old assertion or sits alongside
+        it.
+
+    Default is <#PreferExistingClaimChooseNewbiesArbitrarily>.
+    
+        """;
+    .
+
+<#aggregation> a rdf:property;
+    rdfs:range harvest:AggregationPolicy;
+    rdfs:comment """
+
+    <spec> aggregation <policy>.
+
+    Asserts that when processing <spec> in a template, <policy> should
+    be followed when it comes to deciding whether and how to add
+    values parsed from the template to existing assertions already
+    made for the target.
+
+        """;
+    .
+
+
+<#PreferExistingClaim> rdfs:subClassOf harvest:AggregationPolicy;
+    rdfs:comment """
+
+    Refers to an aggregation policy where the new assertion should be
+    skipped if there is already an assertion for the same predicate
+    assigned to the target.
+    
+    It will require another parameter to decide what to do in the case
+    where there is no existing predicate, but more than one new
+    candidate has been parsed from the template.
+    """;
+        .
+
+<#ChooseNewClaim> a rdfs:Class;
+    rdfs:comment """
+
+    Refers to a policy for choosing between a plurality of new candidate
+    values for some predicate which have been parsed from a template.
+
+        """;
+        .
+
+<#chooseNew> a rdf:Property;
+    rdfs:domain harvest:AggregationPolicy;
+    rdfs:range harvest:ChooseNewClaim;
+    rdfs:comment """
+
+    <AggregationPolicy> harvest:chooseNew <ChooseNewClaim>.
+
+    Asserts that when pursuing <AggregationPolicy>, when faced with a
+    choice between competing new candidate values parsed from the
+    current template, we should follow <ChooseNewClaim>
+
+        """;
+    .
+    
+<#ChooseArbitrarily> rdfs:subClassOf harvest:ChooseNewClaim;
+    rdfs:comment """
+
+    Refers to a policy of just choosing arbitrarily between two
+    candidates for a new value parsed from a tamplate.
+    
+        """;
+    .
+
+<#PreferMoreSpecific> rdfs:subClassOf harvest:ChooseNewClaim;
+    rdfs:comment """
+
+    Refers to a policy of choosing the most specific value in a chain
+    of transitive relations, eg ISA or LOCATED_IN relations, when more
+    than one value has been parsed from the template.
+
+        """;
+        .
+
+
+<#AddIfNotRedundant> a harvest:AggregationPolicy;
+    rdfs:comment """
+        Refers to an aggregation policy of adding the new claim if it
+        is not redundant to what's already been asserted.
+        """;
+    .
+    
+## SPECIFICATION OF SPECIFIC PROPERTIES
+## Default is to prefer the existing claim, and choose new claims
+## arbitrarily when more than one candidate value has been parsed
+## from the template.
+
+
+    wd:P31 #isa
+    rdfs:comment "instance of should not have cycles. "@en;
+    harvest:constraint harvest:CheckForCyclesAndOtherSubsumption;
+    harvest:aggregation harvest:PreferExistingClaim;
+    harvest:chooseNew harvest:PreferMoreSpecific;
+    .
+
+    wd:P39 #position held
+    rdfs:comment "Position held should add unless it's redundant";
+    harvest:aggregation harvest:AddIfNotRedundant;
+    .
+    
+
+    wd:P54 #plays for team
+    rdfs:comment "A player can have played for multiple teams.";
+    harvest:aggregation harvest:AddIfNotRedundant;
+    .
+
+
+    wd:P102 # member of party
+    harvest:aggregation harvest:AddIfNotRedundant;
+    .
+
+    wd:P106 # occupation
+    harvest:aggregation harvest:AddIfNotRedundant;
+    .
+
+    wd:P131 harvest:constraint harvest:NonCyclingAdminRegion;
+    rdfs:comment "located-in should not cycle";
+    harvest:aggegation  harvest:PreferExistingClaim;
+    harvest:chooseNew harvest:PreferMoreSpecific;
+    .
+
+    wd:P279
+    harvest:constraint harvest:CheckForCyclesAndOtherSubsumption;
+    harvest:aggregation harvest:PreferExistingClaim;
+    harvest:chooseNew harvest:PreferMoreSpecific;
+    rdfs:comment """
+        subclassOf should not cycle and there should be no P31 to the same 
+        object.
+        """;
+    .
+
+
+
+
+    
+        
