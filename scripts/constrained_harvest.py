@@ -1463,54 +1463,6 @@ def claimForPropertyExists(context, pnum):
     return ('claims' in context and pnum in context['claims'])
 
 
-# def old_standardCheckRangeConstraints (parse_state, rangeConstraints):
-#     """
-#     Returns True iff <obj> complies with range constraints for 
-#     <predicate> in parse_state
-#     Where
-#     <parse_state> := {?claim ?object ...}
-#     <claim>.getID() -> <predicate> 
-#     <obj> is the URI of some class in wikibase parsed from a
-#       template
-#     <rangeConstraints> := {<p> : <q>, ...}
-#     <p> is a P-number
-#     <q> is a Q-number for an ancestor of <p>
-#     """
-#     claim, obj = (parse_state[k]
-#                   for k in ['claim', 'target'])
-#     predicate = claim.getID()
-#     if predicate not in rangeConstraints:
-#         return True
-
-#     def classUri(constraint):
-#         return "wd:" + constraint
-
-#     def objectUri(o):
-#         # o :~ '[[wikidata:Q...]]'
-#         _o = str(o).replace("[[wikidata:", "wd:")
-#         return _o.replace("]]", "")
-            
-#     template = """
-#     PREFIX wd: <http://www.wikidata.org/entity/>
-#     PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-#     Ask Where
-#     {
-#       { {{O}} wdt:P31/wdt:P279* {{Class}}.}
-#       Union
-#       { {{O}} wdt:P279* {{Class}}.}
-#     }
-#     """
-#     # ... P31?/P279* was strangely dysfunctional. taking the union to 
-#     # compensate
-#     constraint = pystache.render(template,
-#                                  {"O" : objectUri(obj),
-#                                   "Class" : classUri(
-#                                       rangeConstraints[predicate])})
-#     # pywikibot.output("range constraint query:%s" % constraint)
-#     return askQueryWithRetries(constraint)
-
-
-
 def checkNativeConstraints (p_number, obj):
     """
     Returns True iff <obj> complies with native range constraints for 
@@ -1759,27 +1711,6 @@ def install_qualifiers(page_parse, field_parse):
     return page_parse
     
 
-# def includeNewClaim(page_parse, field_parse):
-#     """
-#     Return <page_parse> << {"claims" : "<p> : [<action>]} 
-#       if <field_parse> passes <check>
-#     Where
-#     <page_parse> := {?claims ...}
-#     <field_parse> := {?check ...}, with other annotations parsed from some 
-#       template field
-#     <claims> : {<p> : [<action>, ...], ...}
-#     <action> := <field parse> << {'action' : 'add'} 
-#     <check> := fn(field_parse) -> True iff <field_parse> meets its constraints
-#     NOTE: Typically an argument to the chooseNewClaim parameter
-#       of a claim aggregator. 
-#     """
-    
-#     if not field_parse['checker'](field_parse):
-#         return page_parse
-#     return addClaimSpec(page_parse,
-#                         merge(field_parse,
-#                               {"action" : "add"}))
-
 def addIfItemHasCorroboratingClaim (page_parse, field_parse):
     """
     Returns <page_parse> << {?claims + [...<action>], ...} 
@@ -1957,21 +1888,6 @@ def preferExistingAndMoreSpecificNewbies(page_parse, field_parse):
         field_parse,
         chooseNewClaim = preferMoreSpecificNewClaimForTransitiveProperty)
 
-# def preferExistingAndMoreSpecificNewbiesMarkDefunct(page_parse, field_parse):
-#     """
-#     Like preferExistingAndMoreSpecificNewbies, but in addition it adds
-#     a claim spec to declare former entities as appropriate.
-#     """
-#     page_parse = preferExistingClaim(
-#         page_parse, 
-#         field_parse,
-#         chooseNewClaim = preferMoreSpecificNewClaimForTransitiveProperty)
-#     if field_parse["target"].title() == "Q15893266": # former entity, mv to ont?
-#         addClaimSpec (page_parse, 
-#                       merge(field_parse,
-#                             {"action" : "add"}))
-#     return page_parse
-
 def addIfNotRedundant(page_parse, field_parse):
     """
     Returns <page_parse> << {'claims' : {<p> : [<newAction>]}}
@@ -2014,71 +1930,6 @@ def addIfNotRedundant(page_parse, field_parse):
     return addClaimSpec(page_parse, 
                         merge(field_parse,
                               {"action" : "add"}))
-
-# def get_property_aggregation_fns (supporting_ontology):
-#     """
-#     Returns {<p> : <aggregator> ...} drawn from <supporting_ontology>
-#     Where
-#     <p> is a p-number for some property
-#     <aggregator> := fn(<page-parse> <field_parse>) -> <page_parse>
-#       s.t. <page_parse> may have added claims specified in <field_parse>
-#       appropriately.
-#     <supporting_ontology> is an RDF graph informed by command-line arguments.
-#     """
-
-#     q = """
-#     {{{Prefixes}}}
-#     Select Distinct ?predicate ?aggregator ?chooseNew
-#     Where
-#     {
-#         ?predicate harvest:aggregation ?aggregator.
-#         Optional
-#         {
-#           ?predicate harvest:chooseNew ?chooseNew.
-#         }
-#     }
-#     """
-
-#     def choose_new_fn (chooseNew):
-#         if (chooseNew == "PreferMoreSpecific"):
-#             return preferMoreSpecificNewClaimForTransitiveProperty
-#         elif (chooseNew == None or chooseNew == "ChooseArbitrarily"):
-#             return default_to_defender
-#         else:
-#             raise Exception ("Fell through with chooseNew %s" % chooseNew)
-        
-#     def aggregator_fn (aggregator, chooseNew):
-#         if (aggregator == "PreferExistingClaim"):
-#             def _preferExistingClaim (page_parse, field_parse):
-#                 preferExistingClaim(page_parse, field_parse,
-#                                     chooseNewClaim=choose_new_fn(chooseNew))
-#             return _preferExistingClaim
-#         elif (aggregator == "AddIfNotRedundant"):
-#             return addIfNotRedundant
-#         else:
-#             raise Exception ("Fell through with aggregator spec %"
-#                              % aggregator)
-        
-        
-#     def collect_aggregation_policy (acc, next_binding):
-#         predicate, aggregator, chooseNew = next_binding
-#         predicate = predicate.replace("http://www.wikidata.org/entity/", "")
-#         aggregator = aggregator.replace("http://naturallexicon.org/harvest/#",
-#                                         "")
-#         chooseNew = (chooseNew.replace("http://naturallexicon.org/harvest/#",
-#                                       "")
-#                      if chooseNew else None)
-                     
-#         acc[predicate] = aggregator_fn(aggregator, chooseNew)
-#         return acc
-    
-#     policies = {}
-#     for r in supporting_ontology.query(
-#             pystache.render(q,
-#                             {"Prefixes" : CONFIG_PREFIXES})):
-#         print ("type:%s" % (type (r)))
-#         policies = collect_aggregation_policy (policies, r)
-#     return policies
 
 def implicit_field(prop):
     """
@@ -2343,9 +2194,7 @@ def collectLabelAndAliasEdits (itemContents_changedFields, label):
                      if lang in itemContents['labels'] 
                      else None)
 
-    # return reduce(collectEdits, 
-    #               prefer(existingLabel, label), 
-    #               itemContents_changedFields)
+
     for value, field in prefer(existingLabel, label):
         itemContents, changedFields = collectEdits(itemContents_changedFields,
                                                    (value, field))
@@ -2388,10 +2237,6 @@ def createEditSpecification (editAndClaimSpecifications):
                          : selectLanguage(itemContents[changedField])})
         return editSpec
 
-
-    # editSpec = reduce(mergeEdits, 
-    #                   editAndClaimSpecifications['changedLabelsAndAliases'], 
-    #                   {})
     editSpec = {}
     for changedField in (
             editAndClaimSpecifications['changedLabelsAndAliases']):
@@ -2691,56 +2536,6 @@ def get_checkers (graph, run_name):
     
     
 
-# def get_qualifiers(graph, run_name):
-#     """
-#     Returns {<qualified> : {<qualifier> :<property>, ...}...}, 
-#       derived from the the :HarvestRun instance named by run_name
-#     Where
-#     <graph> is an RDF graph loaded from -c argument and the native
-#       constrained_harvest ontolology.
-#     <qualified> is a field being qualified, i.e. there is meta-data
-#       being assigned to the relationship being expressed, such as
-#       the time range within which the assertion holds
-#     <qualifier> is a field parsed from the same template which provides
-#       the qualifying infobox
-#     <property> is the property being asserted in said meta-data. This  is
-#       a WDProperty, e.g. a P-property or TimeRange, Start, End, etc.
-#     <run_name> regex-matches an instance of HarvestRun in <graph>
-#     """
-#     q = pystache.render("""
-#     {{{prefixes}}}
-#     Select ?qualifiedField ?qualifierField ?pSpec
-#     Where
-#     {
-#       ?run :fieldSpec ?spec.
-#       Filter Regex(Str(?run), "{{run_name}}", "i")
-#       ?spec :field ?qualifiedField;
-#         :qualifier  ?qualifierSpec.
-#       ?qualifierSpec :field ?qualifierField;
-#         :property ?propertyUri.
-#       Bind(Replace(Str(?propertyUri), 
-#                    Concat (Str(wdp:), "|", Str(wdt:), "|",  Str(:)),
-#                    "")
-#            as ?pSpec)
-
-#     }
-
-#     """, {"prefixes" : CONFIG_PREFIXES,
-#           "run_name" : run_name})
-    
-#     pywikibot.output("qualifier_query:%s" % q)
-#     def binding_vec(r):
-#         return [str(b) for b in r]
-#     results =  [binding_vec(r) for r in graph.query(q)]
-#     print ("results in get_qualfiers:%s" % results)
-#     result = {}
-#     for [qualified, qualifier, p] in results:
-#         qualified_entry = result.get(qualified, {})
-#         qualified_entry[qualifier] = strip_prefix(p)
-#         result[qualified] = qualified_entry
-#     print ("result in get_qualfiers:%s" % result)
-#     return result
-
 def get_qualifier_fields (graph, run_name):
     """
     Returns {<qualifier_field> : <qualifier_spec>, ...} per <run> with <run_name> in <graph>
@@ -2992,56 +2787,6 @@ class ConstrainedHarvestRobot(WikidataBot):
                       })
         return page_parse
 
-    # def old_wikibaseClaimConstraintCheckers(self):
-    #     """
-    #     Returns {?fields ?properties}
-    #     Where
-    #     <fields> := {<field> : <checker>, ...}
-    #     <properties> := {<pnum> : <checker>, ...}
-    #     <checker> := fn (s p o) -> True iff s p o is a valid assertion
-    #     NOTES: The class defines constraints for both specifically named
-    #         fields within the templates and for the ranges of the P-numbers
-    #         associated with them. Field constraints trump property 
-    #         constraints.
-    #     Derived classes could override or supplement the contents of this
-    #         table, or a different supporting ontology could be provided on the
-    #         command line
-    #     """
-    #     if self._cachedWikibaseClaimConstraintCheckers:
-    #         return self._cachedWikibaseClaimConstraintCheckers
-
-
-    #     checkers = {}
-    #     # checkers := {'fields': {<field> : <checker function>, ...},
-    #     #             'properties' : {<pnum> : <checker function>, ...}}}
-
-    #     time_re = re.compile(".*Time")
-    #     q_re = re.compile(".*(Q[0-9]+)$")
-        
-    #     def checker_for_constraint (constraint):
-    #         # returns checker for time or q-number
-    #         m = q_re.match(constraint)
-    #         if m:
-    #             return objectRangeConstraintFn("wd:" + m.group(1))
-    #         m = time_re.match(constraint)
-    #         if m:
-    #             return time_range_constraint_fn()
-    #         raise Exception ("Fell through on %s in checker_for_constraint"
-    #                          % constraint)
-        
-    #     for field, constraint in self.rangeConstraints.items():
-    #         fToChecker = checkers.get("fields", {})
-    #         fToChecker[field] = checker_for_constraint(constraint)
-    #         checkers['fields'] = fToChecker
-
-    #     checkers.update (
-    #         {"properties" :
-    #          get_property_constraints (self.supporting_ontology)})
-
-    #     self._cachedWikibaseClaimConstraintCheckers = checkers
-    #     #pywikibot.output("checkers:%s" % checkers)
-    #     return checkers
-
     def getWikibaseClaimConstraintChecker(self, field, pnum):
         """
         Returns fn(s p o) -> True iff constraints have been met.
@@ -3078,82 +2823,6 @@ class ConstrainedHarvestRobot(WikidataBot):
         print ("using default checker for %s/%s" % (field, pnum))
         return checkRangeConstraints
         
-            
-    # def old_wikibaseClaimSpecificationAggregators(self):
-    #     """
-    #     Returns {?fields ?properties} mapping to aggregator functions
-    #     Where:
-    #     <fields> := {<field> : <constrained aggregator>, ...}
-    #     <claims> := {<p> : [<constrained aggregator>, ...], ...}
-    #     <field> is the name of a template parameter
-    #     <constrained aggregator> 
-    #       := fn(page_parse, item, claim, value, contraintChecker) 
-    #                     -> <page_parse> << {?claims} modified appropriately for
-    #                     <value>
-    #     <page_parse> := {?claims ?itemContents }
-    #     <value> is a WD item identified as the object of a relation 
-    #       specified in the template
-    #     <spec> is a specification to change the Wikibase
-    #     <itemContents> := {"claims" : {<pnum> : [<existing claim>, ...], ...}
-    #                       The value retrieved for item from API call
-    #     <properties> := {<property> : <constrained aggregator>, ...}
-    #     """
-    #     aggregators = {"fields" : {}, "properties" : {}}
-        
-
-    #     def setAggregator(pnum, aggregator):
-    #         pToAggregator = aggregators.get('properties', {})
-    #         pToAggregator[pnum] = aggregator
-    #         aggregators['properties'] = pToAggregator
-    #         return aggregators
-
-
-    #     # isa should swap in more specific subclasses and mark things as former entities...
-    #     aggregators = setAggregator("P31",
-    #                                 preferExistingAndMoreSpecificNewbiesMarkDefunct)
-    #     # located-in should swap in more specific subclasses
-    #     aggregators = setAggregator("P131",
-    #                                 preferExistingAndMoreSpecificNewbies)
-    #     # position held should add unless it's redundent to what's already there
-    #     aggregators = setAggregator ("P39",
-    #                                  addIfNotRedundant)
-
-    #     # A player can play for multiple sequential teams...
-    #     aggregators = setAggregator ("P54",
-    #                                  addIfNotRedundant)
-
-    #     # mem of party should add unless it's redundent to what's already there
-    #     aggregators = setAggregator ("P102",
-    #                                  addIfNotRedundant)
-
-    #     # occupation should add unless it's redundent to what's already there
-    #     aggregators = setAggregator ("P106", 
-    #                                  addIfNotRedundant)
-
-    #     return aggregators
-
-    # def wikibaseClaimSpecificationAggregators(self):
-    #     """
-    #     Returns {?fields ?properties} mapping to aggregator functions
-    #     Where:
-    #     <fields> := {<field> : <constrained aggregator>, ...}
-    #     <claims> := {<p> : [<constrained aggregator>, ...], ...}
-    #     <field> is the name of a template parameter
-    #     <constrained aggregator> 
-    #       := fn(page_parse, item, claim, value, contraintChecker) 
-    #                     -> <page_parse> << {?claims} modified appropriately for
-    #                     <value>
-    #     <page_parse> := {?claims ?itemContents }
-    #     <value> is a WD item identified as the object of a relation 
-    #       specified in the template
-    #     <spec> is a specification to change the Wikibase
-    #     <itemContents> := {"claims" : {<pnum> : [<existing claim>, ...], ...}
-    #                       The value retrieved for item from API call
-    #     <properties> := {<property> : <constrained aggregator>, ...}
-    #     """
-    #     return get_aggregation_fns(self.supporting_ontology, self.run_name)
-
-    
 
     def clone_claim(self, claim):
         # used with multiple qualifiers 
@@ -3179,84 +2848,6 @@ class ConstrainedHarvestRobot(WikidataBot):
             print ("no target in %s" % clone)
         return clone
     
-    
-    # def old_getWikibaseClaimSpecificationAggregator(self, field, pnum):
-    #     """
-    #     Returns fn(page_parse, field_parse)
-    #             -> <page_parse> <- {?claims+}
-    #     Where
-    #     <field> names a template parameter
-    #     <pnum> is the name of a property
-    #     <page_parse> := {?claims ?itemContents }
-    #     <claims> := {<p> : [<spec>, ...], ...}
-    #     <claims>+ is <claims>, modified appropriately for <value>
-    #     <parse state> := {?value ?claim ...} and any other annotation
-    #       pertenent to parsing a specific line in the template.
-    #     <value> is a WD item identified as the object of a relation 
-    #       specified in the template
-    #     <spec> := <parse state> << {?action ...}
-    #     <itemContents> := {"claims" : {<pnum> : [<existing claim>, ...], ...}
-    #     """
-    #     # pywikibot.output("gwcsa field:%s pnum:%s" % (field, pnum))
-    #     def find_qualified_field():
-    #         #<qualifiers> := {<qualified field> 
-    #         #                  : {<qualifier field> : <p-spec>},...}
-    #         # print("field in fqf:%s" % field)
-    #         for qualified, qualifierDict in self.qualifiers.items():
-    #             if field in qualifierDict:
-    #                 return qualified
-    #         return None
-
-    #     checker = self.getWikibaseClaimConstraintChecker(field, pnum)
-    #     aggs = self.aggregators
-    #     # {?fields ?properties}
-    #     # <fields> := {<field> : <constrainedAggregatorFn>, ...}
-    #     # <constrainedAggregatorFn> 
-    #     #   := fn(page_parse, field_parse checker) # formerly ? page, item, claim, linked_item, checker) 
-    #     #      -> page_parse << possibly with new claim added.
-    #     # pywikibot.output("aggs:%s" % aggs)
-    #     if field in aggs['fields']:
-    #         def fieldAggregator(page_parse, field_parse):
-    #             fn = aggs['fields'][field]
-    #             return fn(
-    #                 page_parse, 
-    #                 merge(field_parse,
-    #                       {"checker" : checker}))
-    #         return fieldAggregator
-    #     qualified_field = find_qualified_field()
-    #     print("qualified field:%s" % qualified_field)
-    #     if qualified_field:
-    #         # pywikibot.output("found qualified field for %s : %s" 
-    #         #                  % (field, qualified_field))
-            
-    #         qualified_pnum = self.fields[qualified_field]
-    #         def qualification_aggregator(page_parse, field_parse):
-    #             return install_qualifiers(
-    #                 page_parse, 
-    #                 merge(field_parse,
-    #                       {"qualified_pnum" : qualified_pnum,
-    #                        "qualified_field": qualified_field,
-    #                        "checker" : checker,
-    #                        "cloneClaimFn": lambda c: self.clone_claim(c)
-    #                    }))
-
-    #         return qualification_aggregator
-    #     assert pnum
-    #     if pnum in aggs['properties']:
-            
-    #         def property_aggregator(page_parse, field_parse):
-    #             return aggs['properties'][pnum](
-    #                 page_parse,
-    #                 merge(field_parse,
-    #                       {"checker" : checker}))
-    #         return property_aggregator
-            
-    #     def default_aggregator(page_parse, field_parse):
-    #         return preferExistingClaim(
-    #             page_parse,
-    #             merge(field_parse,
-    #                   {"checker" : checker}))
-    #     return default_aggregator
 
     def getWikibaseClaimSpecificationAggregator(self, field, pnum):
         """
@@ -4114,96 +3705,6 @@ def get_lang_and_template_title(graph, run_name):
     assert m
     return [m.group(1), m.group(3)]
 
-
-
-
-
-
-
-# def old_parseArgs(args):
-#     pywikibot.output("args in parse args:%s" % list(args))
-#     g = rdflib.Graph()
-#     pywikibot.output("graph:%s" % g)
-#     pywikibot.output("exists?:%s"
-#                      % os.path.exists("scripts/constrained_harvest.ttl"))
-#     g.parse("scripts/constrained_harvest.ttl",
-#             format=rdf_util.guess_format("scripts/constrained_harvest.ttl"))
-#     pywikibot.output("graph:%s" % g)
-
-#     runRe = re.compile("-r:(.*)")
-#     def get_run_name (m):
-#         return m.group(1)
-#     configRe = re.compile("-c:(.*)")
-#     def get_config_graph (m):
-#         g.parse(m.group(1), 
-#                 format=rdf_util.guess_format(m.group(1)))
-#         return g
-#     blacklist_regex = re.compile("^-blacklist:(.*)$")
-#     def get_blacklist(m):
-#         path = m.group(1)
-#         assert os.path.exists(path)
-#         result = set([])
-#         with open(path, 'r') as instream:
-#             for line in instream:
-#                 result.add(line.strip())
-#         return result
-    
-#     _args = ["-family:wikipedia"]
-#     run_name = None
-#     blacklist = None
-#     for arg in args:
-#         # print("arg:%s" % arg)
-#         m = runRe.match(arg)
-#         if m:
-#             run_name = get_run_name(m)
-#         m = configRe.match(arg)
-#         if m:
-#             g = get_config_graph(m)
-#         m = blacklist_regex.match(arg)
-#         if m:
-#             blacklist=get_blacklist(m)
-#         else:
-#             _args = _args + [arg]
-
-#     [lang, template_title] = get_lang_and_template_title (g, run_name)
-#     _args = _args + ["-template:%s" % template_title, "-lang:%s" % lang]
-#     pywikibot.output ("args:%s" % _args)
-#     # Process global args and prepare generator args parser
-#     local_args = pywikibot.handle_args(_args)
-#     # Handles global options
-#     # See https://www.mediawiki.org/wiki/Manual:Pywikibot/Global_Options
-#     pywikibot.output("local args:%s" % local_args)
-#     defaults = get_defaults(g, run_name)
-#     # print("defaults:%s" % defaults)
-#     fields = get_fields(g, run_name)
-#     # print ("fields:%s" % fields)
-#     constraints = get_range_constraints(g, run_name)
-#     # print ("range constraints:%s" % constraints)
-#     qualifiers = get_qualifiers(g, run_name)
-#     # print ("qualfiers:%s" % qualifiers)
-#     flags = get_flags (g, run_name)
-#     # print ("flags:%s" % flags)
-#     link_templates = get_link_templates(g, run_name)
-#     # print ("link_templates:%s" % link_templates)
-    
-#     # Some command-line arguments initialize the generators associated
-#     # with pywikibot. Others are field specifications. Starting by
-#     # initializing the former and collecting the latter...
-#     gen = pg.GeneratorFactory()
-#     assert gen.handleArg(u"-transcludes:" + template_title)
-#     for arg in _args:
-#         if gen.handleArg(arg):
-#             print ("Gen handled arg %s" % arg)
-
-    
-#     fields['_order'] = fields.keys()
-#     generator = gen.getCombinedGenerator()
-#     assert generator
-#     if blacklist:
-#         generator = (page for page in generator
-#                      if page.title() not in blacklist)
-#     return (generator, template_title, defaults, fields, 
-#             constraints, qualifiers, flags, link_templates)
 
 def parseArgs(args):
     pywikibot.output("args in parse args:%s" % list(args))
